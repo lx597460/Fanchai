@@ -13,6 +13,11 @@ import objects.MenuCharacter;
 import substates.GameplayChangersSubstate;
 import substates.ResetScoreSubState;
 
+// === 路线A新增 ===
+import sys.FileSystem;
+import sys.io.File;
+// ================
+
 class StoryMenuState extends MusicBeatState
 {
 	public static var weekCompleted:Map<String, Bool> = new Map<String, Bool>();
@@ -41,6 +46,11 @@ class StoryMenuState extends MusicBeatState
 
 	var loadedWeeks:Array<WeekData> = [];
 
+	// === 路线A新增：mod 脚本存储 ===
+	public static var modScript:HScript = null;
+	public static var modScriptChecked:Bool = false;
+	// ================================
+
 	override function create()
 	{
 		Paths.clearStoredMemory();
@@ -50,6 +60,20 @@ class StoryMenuState extends MusicBeatState
 		WeekData.reloadWeekFiles(true);
 		if(curWeek >= WeekData.weeksList.length) curWeek = 0;
 		persistentUpdate = persistentDraw = true;
+
+		// === 路线A新增：检测 mods/states/StoryMenuState.hx ===
+		#if MOD_STATES_ALLOWED
+		checkModScript();
+		if (modScript != null) {
+			modScript.setVariable('state', this);
+			if (modScript.exists('onCreate')) {
+				modScript.call('onCreate');
+				super.create();
+				return; // 阻断原版逻辑
+			}
+		}
+		#end
+		// ================================================
 
 		scoreText = new FlxText(10, 10, 0, "SCORE: 49324858", 36);
 		scoreText.setFormat("VCR OSD Mono", 32);
@@ -182,6 +206,28 @@ class StoryMenuState extends MusicBeatState
 		super.create();
 	}
 
+	// === 路线A新增：检查并加载 mod 脚本 ===
+	function checkModScript():Void
+	{
+		if (modScriptChecked) return;
+		modScriptChecked = true;
+
+		#if HSCRIPT_ALLOWED
+		var path = Paths.getPreloadPath('states/StoryMenuState.hx');
+		if (path != null && FileSystem.exists(path)) {
+			try {
+				modScript = new HScript();
+				modScript.execute(File.getContent(path));
+				trace('[ModStates] Loaded: ' + path);
+			} catch (e:Dynamic) {
+				trace('[ModStates] Load failed: ' + e);
+				modScript = null;
+			}
+		}
+		#end
+	}
+	// =====================================
+
 	override function closeSubState() {
 		persistentUpdate = true;
 		changeWeek();
@@ -195,6 +241,16 @@ class StoryMenuState extends MusicBeatState
 
 	override function update(elapsed:Float)
 	{
+		// === 路线A新增：mod 脚本接管 update ===
+		#if MOD_STATES_ALLOWED
+		if (modScript != null && modScript.exists('onUpdate')) {
+			modScript.setVariable('state', this);
+			modScript.setVariable('elapsed', elapsed);
+			modScript.call('onUpdate');
+		}
+		#end
+		// ========================================
+
 		// scoreText.setFormat('VCR OSD Mono', 32);
 		lerpScore = Math.floor(FlxMath.lerp(intendedScore, lerpScore, Math.exp(-elapsed * 30)));
 		if(Math.abs(intendedScore - lerpScore) < 10) lerpScore = intendedScore;
