@@ -102,8 +102,7 @@ class TitleState extends MusicBeatState
 		#if MOD_STATES_ALLOWED
 		checkModScript();
 		if (modScript != null) {
-			modScript.setVariable('state', this);
-			modScript.setVariable('add', Reflect.makeVarArgs(function(o) { add(o); }));
+			modScript.set('state', this);
 			if (modScript.exists('onCreate')) {
 				modScript.call('onCreate');
 				return; // 阻断原版逻辑
@@ -210,11 +209,11 @@ class TitleState extends MusicBeatState
 		modScriptChecked = true;
 
 		#if HSCRIPT_ALLOWED
-		var path = Paths.getPreloadPath('states/TitleState.hx');
+		var path = Paths.getSharedPath('mods/states/TitleState.hx');
 		if (path != null && FileSystem.exists(path)) {
 			try {
-				modScript = new HScript();
-				modScript.execute(File.getContent(path));
+				modScript = new HScript(null, path);
+				modScript.doString(File.getContent(path));
 				trace('[ModStates] Loaded: ' + path);
 			} catch (e:Dynamic) {
 				trace('[ModStates] Load failed: ' + e);
@@ -236,7 +235,7 @@ class TitleState extends MusicBeatState
 		// === 路线A新增：mod 脚本接管 startIntro ===
 		#if MOD_STATES_ALLOWED
 		if (modScript != null && modScript.exists('onStartIntro')) {
-			modScript.setVariable('state', this);
+			modScript.set('state', this);
 			modScript.call('onStartIntro');
 			return;
 		}
@@ -412,8 +411,8 @@ class TitleState extends MusicBeatState
 		// === 路线A新增：mod 脚本接管 update ===
 		#if MOD_STATES_ALLOWED
 		if (modScript != null && modScript.exists('onUpdate')) {
-			modScript.setVariable('state', this);
-			modScript.setVariable('elapsed', elapsed);
+			modScript.set('state', this);
+			modScript.set('elapsed', elapsed);
 			modScript.call('onUpdate');
 		}
 		#end
