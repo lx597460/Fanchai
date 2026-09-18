@@ -7,6 +7,11 @@ import lime.app.Application;
 import states.editors.MasterEditorMenu;
 import options.OptionsState;
 
+// === 路线A新增 ===
+import sys.FileSystem;
+import sys.io.File;
+// ================
+
 class MainMenuState extends MusicBeatState
 {
 	public static var psychEngineVersion:String = '0.7.3'; // This is also used for Discord RPC
@@ -38,6 +43,11 @@ class MainMenuState extends MusicBeatState
 	var magenta:FlxSprite;
 	var camFollow:FlxObject;
 
+	// === 路线A新增：mod 脚本存储 ===
+	public static var modScript:HScript = null;
+	public static var modScriptChecked:Bool = false;
+	// ================================
+
 	override function create()
 	{
 		#if MODS_ALLOWED
@@ -54,6 +64,20 @@ class MainMenuState extends MusicBeatState
 		transOut = FlxTransitionableState.defaultTransOut;
 
 		persistentUpdate = persistentDraw = true;
+
+		// === 路线A新增：检测 mods/states/MainMenuState.hx ===
+		#if MOD_STATES_ALLOWED
+		checkModScript();
+		if (modScript != null) {
+			modScript.setVariable('state', this);
+			if (modScript.exists('onCreate')) {
+				modScript.call('onCreate');
+				super.create();
+				return; // 阻断原版逻辑
+			}
+		}
+		#end
+		// ================================================
 
 		var yScroll:Float = Math.max(0.25 - (0.05 * (optionShit.length - 4)), 0.1);
 		var bg:FlxSprite = new FlxSprite(-80).loadGraphic(Paths.image('menuBG'));
@@ -128,10 +152,42 @@ class MainMenuState extends MusicBeatState
 		FlxG.camera.follow(camFollow, null, 9);
 	}
 
+	// === 路线A新增：检查并加载 mod 脚本 ===
+	function checkModScript():Void
+	{
+		if (modScriptChecked) return;
+		modScriptChecked = true;
+
+		#if HSCRIPT_ALLOWED
+		var path = Paths.getPreloadPath('states/MainMenuState.hx');
+		if (path != null && FileSystem.exists(path)) {
+			try {
+				modScript = new HScript();
+				modScript.execute(File.getContent(path));
+				trace('[ModStates] Loaded: ' + path);
+			} catch (e:Dynamic) {
+				trace('[ModStates] Load failed: ' + e);
+				modScript = null;
+			}
+		}
+		#end
+	}
+	// =====================================
+
 	var selectedSomethin:Bool = false;
 
 	override function update(elapsed:Float)
 	{
+		// === 路线A新增：mod 脚本接管 update ===
+		#if MOD_STATES_ALLOWED
+		if (modScript != null && modScript.exists('onUpdate')) {
+			modScript.setVariable('state', this);
+			modScript.setVariable('elapsed', elapsed);
+			modScript.call('onUpdate');
+		}
+		#end
+		// ========================================
+
 		if (FlxG.sound.music.volume < 0.8)
 		{
 			FlxG.sound.music.volume += 0.5 * elapsed;
