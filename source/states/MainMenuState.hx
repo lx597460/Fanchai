@@ -72,7 +72,7 @@ class MainMenuState extends MusicBeatState
 		#if MOD_STATES_ALLOWED
 		checkModScript();
 		if (modScript != null) {
-			modScript.setVariable('state', this);
+			modScript.set('state', this);
 			if (modScript.exists('onCreate')) {
 				modScript.call('onCreate');
 				super.create();
@@ -162,11 +162,11 @@ class MainMenuState extends MusicBeatState
 		modScriptChecked = true;
 
 		#if HSCRIPT_ALLOWED
-		var path = Paths.getPreloadPath('states/MainMenuState.hx');
+		var path = Paths.getSharedPath('mods/states/MainMenuState.hx');
 		if (path != null && FileSystem.exists(path)) {
 			try {
-				modScript = new HScript();
-				modScript.execute(File.getContent(path));
+				modScript = new HScript(null, path);
+				modScript.doString(File.getContent(path));
 				trace('[ModStates] Loaded: ' + path);
 			} catch (e:Dynamic) {
 				trace('[ModStates] Load failed: ' + e);
@@ -184,8 +184,8 @@ class MainMenuState extends MusicBeatState
 		// === 路线A新增：mod 脚本接管 update ===
 		#if MOD_STATES_ALLOWED
 		if (modScript != null && modScript.exists('onUpdate')) {
-			modScript.setVariable('state', this);
-			modScript.setVariable('elapsed', elapsed);
+			modScript.set('state', this);
+			modScript.set('elapsed', elapsed);
 			modScript.call('onUpdate');
 		}
 		#end
