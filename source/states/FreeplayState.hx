@@ -12,6 +12,11 @@ import substates.ResetScoreSubState;
 
 import flixel.math.FlxMath;
 
+// === 路线A新增 ===
+import sys.FileSystem;
+import sys.io.File;
+// ================
+
 class FreeplayState extends MusicBeatState
 {
 	var songs:Array<SongMetadata> = [];
@@ -47,6 +52,11 @@ class FreeplayState extends MusicBeatState
 	var bottomBG:FlxSprite;
 
 	var player:MusicPlayer;
+
+	// === 路线A新增：mod 脚本存储 ===
+	public static var modScript:HScript = null;
+	public static var modScriptChecked:Bool = false;
+	// ================================
 
 	override function create()
 	{
@@ -87,6 +97,21 @@ class FreeplayState extends MusicBeatState
 			}
 		}
 		Mods.loadTopMod();
+
+		// === 路线A新增：检测 mods/states/FreeplayState.hx ===
+		// 注意：此时 songs 数组已经构建好，脚本可以直接访问 state.songs
+		#if MOD_STATES_ALLOWED
+		checkModScript();
+		if (modScript != null) {
+			modScript.setVariable('state', this);
+			if (modScript.exists('onCreate')) {
+				modScript.call('onCreate');
+				super.create();
+				return; // 阻断原版 UI 初始化
+			}
+		}
+		#end
+		// ================================================
 
 		bg = new FlxSprite().loadGraphic(Paths.image('menuDesat'));
 		bg.antialiasing = ClientPrefs.data.antialiasing;
@@ -186,6 +211,28 @@ class FreeplayState extends MusicBeatState
 		super.create();
 	}
 
+	// === 路线A新增：检查并加载 mod 脚本 ===
+	function checkModScript():Void
+	{
+		if (modScriptChecked) return;
+		modScriptChecked = true;
+
+		#if HSCRIPT_ALLOWED
+		var path = Paths.getPreloadPath('states/FreeplayState.hx');
+		if (path != null && FileSystem.exists(path)) {
+			try {
+				modScript = new HScript();
+				modScript.execute(File.getContent(path));
+				trace('[ModStates] Loaded: ' + path);
+			} catch (e:Dynamic) {
+				trace('[ModStates] Load failed: ' + e);
+				modScript = null;
+			}
+		}
+		#end
+	}
+	// =====================================
+
 	override function closeSubState() {
 		changeSelection(0, false);
 		persistentUpdate = true;
@@ -212,6 +259,16 @@ class FreeplayState extends MusicBeatState
 	var holdTime:Float = 0;
 	override function update(elapsed:Float)
 	{
+		// === 路线A新增：mod 脚本接管 update ===
+		#if MOD_STATES_ALLOWED
+		if (modScript != null && modScript.exists('onUpdate')) {
+			modScript.setVariable('state', this);
+			modScript.setVariable('elapsed', elapsed);
+			modScript.call('onUpdate');
+		}
+		#end
+		// ========================================
+
 		if (FlxG.sound.music.volume < 0.7)
 		{
 			FlxG.sound.music.volume += 0.5 * FlxG.elapsed;
