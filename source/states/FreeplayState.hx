@@ -15,6 +15,9 @@ import flixel.math.FlxMath;
 // === 路线A新增 ===
 import sys.FileSystem;
 import sys.io.File;
+#if HSCRIPT_ALLOWED
+import psychlua.HScript;
+#end
 // ================
 
 class FreeplayState extends MusicBeatState
