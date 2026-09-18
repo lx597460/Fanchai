@@ -21,6 +21,11 @@ import states.StoryMenuState;
 import states.OutdatedState;
 import states.MainMenuState;
 
+// === 路线A新增 ===
+import sys.FileSystem;
+import sys.io.File;
+// ================
+
 typedef TitleData =
 {
 	titlex:Float,
@@ -68,6 +73,11 @@ class TitleState extends MusicBeatState
 
 	public static var updateVersion:String = '';
 
+	// === 路线A新增：保存 mod 脚本，避免重复加载 ===
+	public static var modScript:HScript = null;
+	public static var modScriptChecked:Bool = false;
+	// ========================================
+
 	override public function create():Void
 	{
 		Paths.clearStoredMemory();
@@ -84,6 +94,20 @@ class TitleState extends MusicBeatState
 		curWacky = FlxG.random.getObject(getIntroTextShit());
 
 		super.create();
+
+		// === 路线A新增：检测 mods/states/TitleState.hx ===
+		#if MOD_STATES_ALLOWED
+		checkModScript();
+		if (modScript != null) {
+			modScript.setVariable('state', this);
+			modScript.setVariable('add', Reflect.makeVarArgs(function(o) { add(o); }));
+			if (modScript.exists('onCreate')) {
+				modScript.call('onCreate');
+				return; // 阻断原版逻辑
+			}
+		}
+		#end
+		// ================================================
 
 		FlxG.save.bind('funkin', CoolUtil.getSavePath());
 
@@ -176,6 +200,28 @@ class TitleState extends MusicBeatState
 		#end
 	}
 
+	// === 路线A新增：检查并加载 mod 脚本 ===
+	function checkModScript():Void
+	{
+		if (modScriptChecked) return;
+		modScriptChecked = true;
+
+		#if HSCRIPT_ALLOWED
+		var path = Paths.getPreloadPath('states/TitleState.hx');
+		if (path != null && FileSystem.exists(path)) {
+			try {
+				modScript = new HScript();
+				modScript.execute(File.getContent(path));
+				trace('[ModStates] Loaded: ' + path);
+			} catch (e:Dynamic) {
+				trace('[ModStates] Load failed: ' + e);
+				modScript = null;
+			}
+		}
+		#end
+	}
+	// =====================================
+
 	var logoBl:FlxSprite;
 	var gfDance:FlxSprite;
 	var danceLeft:Bool = false;
@@ -184,6 +230,16 @@ class TitleState extends MusicBeatState
 
 	function startIntro()
 	{
+		// === 路线A新增：mod 脚本接管 startIntro ===
+		#if MOD_STATES_ALLOWED
+		if (modScript != null && modScript.exists('onStartIntro')) {
+			modScript.setVariable('state', this);
+			modScript.call('onStartIntro');
+			return;
+		}
+		#end
+		// ==========================================
+
 		if (!initialized)
 		{
 			if(FlxG.sound.music == null) {
@@ -350,6 +406,16 @@ class TitleState extends MusicBeatState
 
 	override function update(elapsed:Float)
 	{
+		// === 路线A新增：mod 脚本接管 update ===
+		#if MOD_STATES_ALLOWED
+		if (modScript != null && modScript.exists('onUpdate')) {
+			modScript.setVariable('state', this);
+			modScript.setVariable('elapsed', elapsed);
+			modScript.call('onUpdate');
+		}
+		#end
+		// ========================================
+
 		if (FlxG.sound.music != null)
 			Conductor.songPosition = FlxG.sound.music.time;
 		// FlxG.watch.addQuick('amp', FlxG.sound.music.amplitude);
